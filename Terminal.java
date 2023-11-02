@@ -71,6 +71,22 @@ public class Terminal {
         }
     }
 
+    public void ls_r() {
+        File currentDir = new File(System.getProperty("user.dir"));
+        if (currentDir.exists() && currentDir.isDirectory()) {
+            File[] files = currentDir.listFiles();
+            if (files != null && files.length > 0) {
+                for (int i = files.length - 1; i >= 0; i--) {
+                    System.out.println(files[i].getName());
+                }
+            } else {
+                System.out.println("The current directory is empty.");
+            }
+        } else {
+            System.out.println("Failed to list the contents of the current directory.");
+        }
+    }
+
 
 
     public static void main(String[] args) throws IOException {
