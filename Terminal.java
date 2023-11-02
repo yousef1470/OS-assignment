@@ -1,5 +1,7 @@
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class Terminal {
     Parser parse;
@@ -37,6 +39,38 @@ public class Terminal {
             System.out.println("Invalid usage.");
         }
     }
+    public void mkdir(String[] args) {
+        if (args.length == 0) {
+            System.out.println("NO.args to make directory.");
+        } else {
+            for (String arg : args) {
+                if (arg.endsWith(File.separator)) {
+                    new File(arg);
+                } else {
+                    new File(System.getProperty("user.dir"), arg);
+                }
+            }
+        }
+    }
+
+    public void ls() {
+        File currentDir = new File(System.getProperty("user.dir"));
+        if (currentDir.exists() && currentDir.isDirectory()) {
+            File[] files = currentDir.listFiles();
+            if (files != null && files.length > 0) {
+                Arrays.sort(files);
+                for (File file : files) {
+                    System.out.println(file.getName());
+                }
+                } else {
+                    System.out.println("The current directory is empty.");
+                }
+            }
+        else {
+                System.out.println("Failed to list the contents of the current directory.");
+        }
+    }
+
 
 
     public static void main(String[] args) throws IOException {
