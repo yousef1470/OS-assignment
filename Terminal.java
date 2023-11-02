@@ -87,6 +87,24 @@ public class Terminal {
         }
     }
 
+    public void rm(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: rm <file_name>");
+            return;
+        }
+        String fileName = args[0];
+        File file = new File(fileName);
+        if (file.exists() && file.isFile()) {
+            if (file.delete()) {
+                System.out.println("File removed : " + fileName);
+            } else {
+                System.out.println("Failed to remove this file: " + fileName);
+            }
+        } else {
+            System.out.println("File not found: " + fileName);
+        }
+    }
+
 
 
     public static void main(String[] args) throws IOException {
