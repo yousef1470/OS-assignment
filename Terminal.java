@@ -8,6 +8,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Scanner;
+import java.nio.file.Paths;
+import java.nio.file.Path;
 
 public class Terminal {
     Parser parse;
@@ -157,8 +159,15 @@ public class Terminal {
         }else{
             String sourcePath = args[0];
             String destinationPath = args[1];
-            Path source = Path.of(sourcePath);
-            Path destination = Path.of(destinationPath);
+            Path source = Paths.get(sourcePath);
+            Path destination = Paths.get(destinationPath);
+            if (!source.isAbsolute()) {
+                source = Paths.get(current_dir, sourcePath);
+            }
+        
+            if (!destination.isAbsolute()) {
+                destination = Paths.get(current_dir, destinationPath);
+            }
             try {
                 Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -203,6 +212,8 @@ public class Terminal {
         String argument;
 
         switch (commandName) {
+            case "echo":
+                echo(args);
             case "pwd":
                 System.out.println(pwd());
                 break;
@@ -246,6 +257,9 @@ public class Terminal {
                     System.out.println("No file path specified.");
                 }
                 break;
+            case "cp":
+                cp(args);
+                break;
             case "exit":
                 break;
             default:
@@ -259,10 +273,6 @@ public class Terminal {
         Terminal terminal = new Terminal();
         Scanner scanner = new Scanner(System.in);
         terminal.current_dir = System.getProperty("user.dir");
-        String[] arg = {"text.txt", "file.txt"};
-        terminal.cat(arg);
-
-
         while (true) {
             System.out.print(terminal.current_dir + "> ");
             String input = scanner.nextLine();
