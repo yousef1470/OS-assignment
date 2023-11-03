@@ -22,49 +22,29 @@ public class Terminal {
             System.out.println(parse.args[0]);
     }
     public String pwd(){
-        return currentPath;
+        return current_dir;
 
     }
-    public void cd(String[] args) throws IOException {
-        if (args.length == 0) {
-            currentPath = System.getProperty("user.home");
-        } else if (args.length == 1) {
-            if (args[0].equals("..")) {
-                File parentDir = new File(currentPath).getParentFile();
-                if (parentDir != null) {
-                    currentPath = parentDir.getCanonicalPath();
-                }
+
+    public void cd(String path) {
+        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
+
+        for (String part : pathParts) {
+            if (part.equals("..")) {
+                // Change the current directory to the parent directory
+                File currentDir = new File(current_dir);
+                current_dir = currentDir.getParent();
             } else {
-                File newDir = new File(currentPath, args[0]);
-                if (newDir.exists() && newDir.isDirectory()) {
-                    currentPath = newDir.getCanonicalPath();
+                // Change the current directory to the specified path
+                File newDir = new File(part);
+                if (newDir.isAbsolute()) {
+                    current_dir = newDir.getAbsolutePath();
                 } else {
-                    System.out.println("Directory not found: " + args[0]);
+                    current_dir = new File(current_dir, part).getAbsolutePath();
                 }
             }
-        } else {
-            System.out.println("Invalid usage.");
         }
     }
-//    public void cd(String[] args) {
-//        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
-//
-//        for (String arg : args) {
-//            if (arg.equals("..")) {
-//                // Change the current directory to the parent directory
-//                File currentDir = new File(current_dir);
-//                current_dir = currentDir.getParent();
-//            } else {
-//                // Change the current directory to the specified path
-//                File newDir = new File(arg);
-//                if (newDir.isAbsolute()) {
-//                    current_dir = newDir.getAbsolutePath();
-//                } else {
-//                    current_dir = new File(current_dir, arg).getAbsolutePath();
-//                }
-//            }
-//        }
-//    }
     public void mkdir(String[] args) {
         if (args.length == 0) {
             System.out.println("Usage: mkdir <directory1> [<directory2> ...]");
@@ -76,7 +56,7 @@ public class Terminal {
                     newDir = new File(arg);
                 } else {
                 // Argument is a directory name (create in the current directory)
-                    newDir = new File(System.getProperty("user.dir"), arg);
+                    newDir = new File(current_dir, arg);
             }
 
                 if (!newDir.exists() && newDir.mkdirs()) {
@@ -114,7 +94,7 @@ public class Terminal {
     }
 
     public void ls() {
-        File currentDir = new File(System.getProperty("user.dir"));
+        File currentDir = new File(current_dir);
         if (currentDir.exists() && currentDir.isDirectory()) {
             File[] files = currentDir.listFiles();
             if (files != null && files.length > 0) {
@@ -132,7 +112,7 @@ public class Terminal {
     }
 
     public void ls_r() {
-        File currentDir = new File(System.getProperty("user.dir"));
+        File currentDir = new File(current_dir);
         if (currentDir.exists() && currentDir.isDirectory()) {
             File[] files = currentDir.listFiles();
             if (files != null && files.length > 0) {
@@ -147,24 +127,18 @@ public class Terminal {
         }
     }
 
-    public void rm(String[] args) {
-        if (args.length != 1) {
-            System.out.println("Usage: rm <file_name>");
-            return;
-        }
-        String fileName = args[0];
-        File file = new File(fileName);
+    public void rm(String fileName) {
+        File file = new File(current_dir, fileName);
         if (file.exists() && file.isFile()) {
             if (file.delete()) {
-                System.out.println("File removed : " + fileName);
+                System.out.println("File removed: " + file.getAbsolutePath());
             } else {
-                System.out.println("Failed to remove this file: " + fileName);
+                System.out.println("Failed to remove the file: " + file.getAbsolutePath());
             }
         } else {
-            System.out.println("File not found: " + fileName);
+            System.out.println("File does not exist or is not a regular file: " + file.getAbsolutePath());
         }
     }
-
     public void touch(String filePath) {
         File file = new File(current_dir, filePath);
         try {
@@ -234,7 +208,7 @@ public class Terminal {
                 break;
             case "cd":
                 argument = args.length > 0 ? args[0] : "";
-//                cd(argument);
+               cd(argument);
                 break;
             case "ls":
                 argument = args.length > 0 ? args[0] : "";
@@ -255,7 +229,7 @@ public class Terminal {
                 if (args.length > 0) {
                     rmdir(args[0]);
                 } else {
-                    System.out.println("No directory specified.");
+                    System.out.println("No File specified.");
                 }
                 break;
             case "touch":
@@ -267,7 +241,7 @@ public class Terminal {
                 break;
             case "rm":
                 if (args.length > 0) {
-//                    rm(args[0]);
+                   rm(args[0]);
                 } else {
                     System.out.println("No file path specified.");
                 }
@@ -289,19 +263,18 @@ public class Terminal {
         terminal.cat(arg);
 
 
-//        while (true) {
-//            System.out.print(terminal.current_dir + "> ");
-//            String input = scanner.nextLine();
-//
-//            if (input.equals("exit")) {
-//                break;
-//            } else {
-//                terminal.chooseCommandAction(input);
-//            }
-//        }
-//
-//        scanner.close();
-//    }
+        while (true) {
+            System.out.print(terminal.current_dir + "> ");
+            String input = scanner.nextLine();
+
+            if (input.equals("exit")) {
+                break;
+            } else {
+                terminal.chooseCommandAction(input);
+            }
+        }
+
+        scanner.close();
 
     }
 }
