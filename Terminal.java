@@ -18,25 +18,23 @@ public class Terminal {
         return currentPath;
 
     }
-    public void cd(String[] args) throws IOException {
-        if (args.length == 0) {
-            currentPath = System.getProperty("user.home");
-        } else if (args.length == 1) {
-            if (args[0].equals("..")) {
-                File parentDir = new File(currentPath).getParentFile();
-                if (parentDir != null) {
-                    currentPath = parentDir.getCanonicalPath();
-                }
+    public void cd(String[] args) {
+        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
+
+        for (String part : pathParts) {
+            if (part.equals("..")) {
+                // Change the current directory to the parent directory
+                File currentDir = new File(current_dir);
+                current_dir = currentDir.getParent();
             } else {
-                File newDir = new File(currentPath, args[0]);
-                if (newDir.exists() && newDir.isDirectory()) {
-                    currentPath = newDir.getCanonicalPath();
+                // Change the current directory to the specified path
+                File newDir = new File(part);
+                if (newDir.isAbsolute()) {
+                    current_dir = newDir.getAbsolutePath();
                 } else {
-                    System.out.println("Directory not found: " + args[0]);
+                    current_dir = new File(current_dir, part).getAbsolutePath();
                 }
             }
-        } else {
-            System.out.println("Invalid usage.");
         }
     }
     public void mkdir(String[] args) {
@@ -50,6 +48,29 @@ public class Terminal {
                     new File(System.getProperty("user.dir"), arg);
                 }
             }
+        }
+    }
+
+    public void rmdir(String directory) {
+        File dir = new File(current_dir,directory);
+
+        if (dir.exists()) {
+            if (dir.isDirectory()) {
+                String[] subFiles = dir.list();
+                if (subFiles != null && subFiles.length == 0) {
+                    if (dir.delete()) {
+                        System.out.println("Directory removed: " + dir.getAbsolutePath());
+                    } else {
+                        System.out.println("Failed to remove directory: " + dir.getAbsolutePath());
+                    }
+                } else {
+                    System.out.println("Directory is not empty: " + dir.getAbsolutePath());
+                }
+            } else {
+                System.out.println("Not a directory: " + dir.getAbsolutePath());
+            }
+        } else {
+            System.out.println("Directory does not exist: " + dir.getAbsolutePath());
         }
     }
 
@@ -105,11 +126,96 @@ public class Terminal {
         }
     }
 
+    public void touch(String filePath) {
+        File file = new File(current_dir, filePath);
+        try {
+            if (file.createNewFile()) {
+                System.out.println("File created: " + file.getAbsolutePath());
+            } else {
+                System.out.println("File already exists or creation failed: " + file.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            System.out.println("Failed to create the file: " + e.getMessage());
+        }
+    }
+
+
+    public void chooseCommandAction(String input) {
+        parser.parse(input);
+        String commandName = parser.getCommandName();
+        String[] args = parser.getArgs();
+        String argument;
+
+        switch (commandName) {
+            case "pwd":
+                System.out.println(pwd());
+                break;
+            case "cd":
+                argument = args.length > 0 ? args[0] : "";
+                cd(argument);
+                break;
+            case "ls":
+                argument = args.length > 0 ? args[0] : "";
+                if (argument.equals("-r")) {
+                    lsReverse();
+                } else {
+                    ls();
+                }
+                break;
+            case "mkdir":
+                if (args.length > 0) {
+                    mkdir(args);
+                } else {
+                    System.out.println("No directory name specified.");
+                }
+                break;
+            case "rmdir":
+                if (args.length > 0) {
+                    rmdir(args[0]);
+                } else {
+                    System.out.println("No directory specified.");
+                }
+                break;
+            case "touch":
+                if (args.length > 0) {
+                    touch(args[0]);
+                } else {
+                    System.out.println("No file path specified.");
+                }
+                break;
+            case "rm":
+                if (args.length > 0) {
+                    rm(args[0]);
+                } else {
+                    System.out.println("No file path specified.");
+                }
+                break;
+            case "exit":
+                break;
+            default:
+                System.out.println("Command not found: " + commandName);
+        }
+    }
+
 
 
     public static void main(String[] args) throws IOException {
+        Terminal terminal = new Terminal();
+        Scanner scanner = new Scanner(System.in);
+        terminal.current_dir = System.getProperty("user.dir");
 
+        while (true) {
+            System.out.print(terminal.current_dir + "> ");
+            String input = scanner.nextLine();
 
+            if (input.equals("exit")) {
+                break;
+            } else {
+                terminal.chooseCommandAction(input);
+            }
+        }
 
+        scanner.close();
+    }
     }
 }
