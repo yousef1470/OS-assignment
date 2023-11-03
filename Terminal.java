@@ -2,13 +2,18 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Scanner;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.Path;
 
 public class Terminal {
@@ -19,9 +24,9 @@ public class Terminal {
     public Terminal() throws IOException {
     }
 
-    public void echo(String[] arg){
-        if(arg.length>0)
-            System.out.println(parse.args[0]);
+    public void echo(String[] args){
+        if(args.length>0)
+            System.out.println(args[0]);
     }
     public String pwd(){
         return current_dir;
@@ -175,51 +180,126 @@ public class Terminal {
             }
         }
     }
+    public void cp_r(String[] args) {
+        if(args.length < 3){
+            System.out.println("Not enough arguments.");
+            return;
+        }
+        String sourcePath = args[1];
+        String destinationPath = args[2];
+        
+        final Path sourceDir = Paths.get(sourcePath).isAbsolute() ? Paths.get(sourcePath) : Paths.get(current_dir, sourcePath);
+        final Path destinationDir = Paths.get(destinationPath).isAbsolute() ? Paths.get(destinationPath) : Paths.get(current_dir, destinationPath);
+        if (!Files.exists(sourceDir)) {
+            System.out.println("Source directory does not exist: " + sourceDir);
+            return;
+        }
+    
+        if (!Files.isDirectory(sourceDir)) {
+            System.out.println("Source is not a directory: " + sourceDir);
+            return;
+        }
+    
+        try {
+            Files.walkFileTree(sourceDir, EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    Path relativePath = sourceDir.relativize(dir);
+                    Path destination = destinationDir.resolve(relativePath);
+    
+                    if (!Files.exists(destination)) {
+                        Files.createDirectories(destination);
+                    }
+    
+                    return FileVisitResult.CONTINUE;
+                }
+    
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Path relativePath = sourceDir.relativize(file);
+                    Path destination = destinationDir.resolve(relativePath);
+    
+                    Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+    
+                    return FileVisitResult.CONTINUE;
+                }
+    
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                    System.err.println("Failed to copy: " + file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+    
+            System.out.println("Directory copied from " + sourceDir + " to " + destinationDir);
+        } catch (IOException e) {
+            System.out.println("Error copying directory: " + e.getMessage());
+        }
+    }
     public void cat(String[] args) {
         if (args.length == 1) {
-            try (BufferedReader br = new BufferedReader(new FileReader(args[0]))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    System.out.println(line);
-                }
-            } catch (IOException e) {
-                System.out.println("Error reading the file: " + e.getMessage());
+            String filePath = resolvePath(args[0]);
+            if (filePath != null) {
+                printFileContent(filePath);
+            } else {
+                System.out.println("Invalid file path: " + args[0]);
             }
         } else if (args.length == 2) {
-            try (BufferedReader br1 = new BufferedReader(new FileReader(args[0]));
-                 BufferedReader br2 = new BufferedReader(new FileReader(args[1]))) {
-                String line;
-                while ((line = br1.readLine()) != null) {
-                    System.out.println(line);
-                }
-                while ((line = br2.readLine()) != null) {
-                    System.out.println(line);
-                }
-            } catch (IOException e) {
-                System.out.println("Error reading the files: " + e.getMessage());
+            String filePath1 = resolvePath(args[0]);
+            String filePath2 = resolvePath(args[1]);
+    
+            if (filePath1 != null && filePath2 != null) {
+                printFileContent(filePath1);
+                printFileContent(filePath2);
+            } else {
+                System.out.println("Invalid file path(s): " + args[0] + " " + args[1]);
             }
         } else {
             System.out.println("Invalid number of arguments. Usage: cat <file1> or cat <file1> <file2>");
         }
     }
-
-    public static void wc() throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        int lines = 0;
-        int words = 0;
-        int characters = 0;
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            lines++;
-            words += line.split("\\s+").length;
-            characters += line.length();
+    
+    private String resolvePath(String path) {
+        Path resolvedPath = Paths.get(path);
+        if (resolvedPath.toFile().exists()) {
+            return resolvedPath.toString();
+        } else if (Paths.get(current_dir,path).toFile().exists()) {
+            return Paths.get(current_dir,path).toString();
+        } else {
+            return null;
         }
-
-        System.out.println(lines + " " + words + " " + characters);
-        reader.close();
+    }
+    
+    private void printFileContent(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading the file: " + e.getMessage());
+        }
     }
 
+    public void wc(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(current_dir + File.separator + filePath))) {
+            int lineCount = 0;
+            int wordCount = 0;
+            int charCount = 0;
+    
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lineCount++;
+                String[] words = line.split("\\s+"); // Split line into words
+                wordCount += words.length;
+                charCount += line.length();
+            }
+    
+            System.out.println(lineCount + " " + wordCount + " " + charCount + " " + filePath);
+        } catch (IOException e) {
+            System.out.println("Error reading the file: " + e.getMessage());
+        }
+    }
     public void chooseCommandAction(String input) {
         Parser parser= new Parser();
         parser.parse(input);
@@ -274,7 +354,20 @@ public class Terminal {
                 }
                 break;
             case "cp":
-                cp(args);
+                argument = args.length > 0 ? args[0] : "";
+                if (argument.equals("-r")) {
+                    cp_r(args);
+                } else {
+                    cp(args);
+                }
+                break;
+            case "wc":
+                argument = args.length > 0 ? args[0] : "";
+
+                wc(argument);
+                break;
+            case "cat":
+                cat(args);
                 break;
             case "exit":
                 break;
@@ -304,4 +397,3 @@ public class Terminal {
 
     }
 }
-
