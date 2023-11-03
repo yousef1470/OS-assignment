@@ -1,11 +1,18 @@
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Scanner;
 
 public class Terminal {
     Parser parse;
     String currentPath = new java.io.File(".").getCanonicalPath();
+    private String current_dir;
 
     public Terminal() throws IOException {
     }
@@ -18,38 +25,70 @@ public class Terminal {
         return currentPath;
 
     }
-    public void cd(String[] args) {
-        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
-
-        for (String part : pathParts) {
-            if (part.equals("..")) {
-                // Change the current directory to the parent directory
-                File currentDir = new File(current_dir);
-                current_dir = currentDir.getParent();
+    public void cd(String[] args) throws IOException {
+        if (args.length == 0) {
+            currentPath = System.getProperty("user.home");
+        } else if (args.length == 1) {
+            if (args[0].equals("..")) {
+                File parentDir = new File(currentPath).getParentFile();
+                if (parentDir != null) {
+                    currentPath = parentDir.getCanonicalPath();
+                }
             } else {
-                // Change the current directory to the specified path
-                File newDir = new File(part);
-                if (newDir.isAbsolute()) {
-                    current_dir = newDir.getAbsolutePath();
+                File newDir = new File(currentPath, args[0]);
+                if (newDir.exists() && newDir.isDirectory()) {
+                    currentPath = newDir.getCanonicalPath();
                 } else {
-                    current_dir = new File(current_dir, part).getAbsolutePath();
+                    System.out.println("Directory not found: " + args[0]);
                 }
             }
+        } else {
+            System.out.println("Invalid usage.");
         }
     }
+//    public void cd(String[] args) {
+//        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
+//
+//        for (String arg : args) {
+//            if (arg.equals("..")) {
+//                // Change the current directory to the parent directory
+//                File currentDir = new File(current_dir);
+//                current_dir = currentDir.getParent();
+//            } else {
+//                // Change the current directory to the specified path
+//                File newDir = new File(arg);
+//                if (newDir.isAbsolute()) {
+//                    current_dir = newDir.getAbsolutePath();
+//                } else {
+//                    current_dir = new File(current_dir, arg).getAbsolutePath();
+//                }
+//            }
+//        }
+//    }
     public void mkdir(String[] args) {
         if (args.length == 0) {
-            System.out.println("NO.args to make directory.");
+            System.out.println("Usage: mkdir <directory1> [<directory2> ...]");
         } else {
             for (String arg : args) {
+                File newDir;
                 if (arg.endsWith(File.separator)) {
-                    new File(arg);
+                    // Argument is a path ending with a directory name
+                    newDir = new File(arg);
                 } else {
-                    new File(System.getProperty("user.dir"), arg);
-                }
+                // Argument is a directory name (create in the current directory)
+                    newDir = new File(System.getProperty("user.dir"), arg);
             }
+
+                if (!newDir.exists() && newDir.mkdirs()) {
+                    System.out.println("Created directory: " + newDir.getAbsolutePath());
+                } else if (newDir.exists()) {
+                    System.out.println("Directory already exists: " + newDir.getAbsolutePath());
+                } else {
+                System.out.println("Failed to create directory: " + newDir.getAbsolutePath());
+                }
         }
     }
+}
 
     public void rmdir(String directory) {
         File dir = new File(current_dir,directory);
@@ -138,9 +177,52 @@ public class Terminal {
             System.out.println("Failed to create the file: " + e.getMessage());
         }
     }
+    public void cp(String[] args) {
+        if(args.length<2) {
+            System.out.println("Not enough arguments.");
+        }else{
+            String sourcePath = args[0];
+            String destinationPath = args[1];
+            Path source = Path.of(sourcePath);
+            Path destination = Path.of(destinationPath);
+            try {
+                Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                System.out.println("Error copying the file: " + e.getMessage());
+            }
+        }
+    }
+    public void cat(String[] args) {
+        if (args.length == 1) {
+            try (BufferedReader br = new BufferedReader(new FileReader(args[0]))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    System.out.println(line);
+                }
+            } catch (IOException e) {
+                System.out.println("Error reading the file: " + e.getMessage());
+            }
+        } else if (args.length == 2) {
+            try (BufferedReader br1 = new BufferedReader(new FileReader(args[0]));
+                 BufferedReader br2 = new BufferedReader(new FileReader(args[1]))) {
+                String line;
+                while ((line = br1.readLine()) != null) {
+                    System.out.println(line);
+                }
+                while ((line = br2.readLine()) != null) {
+                    System.out.println(line);
+                }
+            } catch (IOException e) {
+                System.out.println("Error reading the files: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Invalid number of arguments. Usage: cat <file1> or cat <file1> <file2>");
+        }
+    }
 
 
     public void chooseCommandAction(String input) {
+        Parser parser= new Parser();
         parser.parse(input);
         String commandName = parser.getCommandName();
         String[] args = parser.getArgs();
@@ -152,12 +234,12 @@ public class Terminal {
                 break;
             case "cd":
                 argument = args.length > 0 ? args[0] : "";
-                cd(argument);
+//                cd(argument);
                 break;
             case "ls":
                 argument = args.length > 0 ? args[0] : "";
                 if (argument.equals("-r")) {
-                    lsReverse();
+                    ls_r();
                 } else {
                     ls();
                 }
@@ -185,7 +267,7 @@ public class Terminal {
                 break;
             case "rm":
                 if (args.length > 0) {
-                    rm(args[0]);
+//                    rm(args[0]);
                 } else {
                     System.out.println("No file path specified.");
                 }
@@ -203,19 +285,24 @@ public class Terminal {
         Terminal terminal = new Terminal();
         Scanner scanner = new Scanner(System.in);
         terminal.current_dir = System.getProperty("user.dir");
+        String[] arg = {"text.txt", "file.txt"};
+        terminal.cat(arg);
 
-        while (true) {
-            System.out.print(terminal.current_dir + "> ");
-            String input = scanner.nextLine();
 
-            if (input.equals("exit")) {
-                break;
-            } else {
-                terminal.chooseCommandAction(input);
-            }
-        }
+//        while (true) {
+//            System.out.print(terminal.current_dir + "> ");
+//            String input = scanner.nextLine();
+//
+//            if (input.equals("exit")) {
+//                break;
+//            } else {
+//                terminal.chooseCommandAction(input);
+//            }
+//        }
+//
+//        scanner.close();
+//    }
 
-        scanner.close();
-    }
     }
 }
+
