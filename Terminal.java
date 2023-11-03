@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
@@ -8,9 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Scanner;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
@@ -20,13 +24,37 @@ public class Terminal {
     Parser parse;
     String currentPath = new java.io.File(".").getCanonicalPath();
     private String current_dir;
-
+    private List<String> commandHistory = new ArrayList<>();
+    boolean outToFile = false;
+    String filePath = "";
+    boolean append = false;
     public Terminal() throws IOException {
     }
+    public void writeOutput(String output) {
+        System.out.println(outToFile);
+        if (!outToFile) {
+            System.out.println(output);
+            return;
+        }
+        Path outputPath = Paths.get(filePath).isAbsolute() ? Paths.get(filePath) : Paths.get(current_dir, filePath);
 
+    
+        File outputFile = new File(outputPath.toString());
+
+    
+        try {
+            FileWriter fileWriter = new FileWriter(outputFile, append);
+            BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+            bufferedWriter.write(output);
+            bufferedWriter.newLine();
+            bufferedWriter.close();
+        } catch (IOException e) {
+            System.err.println("Error writing to the file: " + e.getMessage());
+        }
+    }
     public void echo(String[] args){
         if(args.length>0)
-            System.out.println(args[0]);
+           writeOutput(args[0]);
     }
     public String pwd(){
         return current_dir;
@@ -34,24 +62,35 @@ public class Terminal {
     }
 
     public void cd(String path) {
-        String[] pathParts = path.split("[,;]"); // Split the input by comma or semicolon
-
+        String[] pathParts = path.split("[,;/]"); // Split the input by comma or semicolon
+    
         for (String part : pathParts) {
             if (part.equals("..")) {
                 // Change the current directory to the parent directory
                 File currentDir = new File(current_dir);
-                current_dir = currentDir.getParent();
+                String parentDir = currentDir.getParent();
+                if (parentDir != null) {
+                    current_dir = parentDir;
+                } else {
+                    System.out.println("Cannot go further up; current directory remains the same.");
+                }
             } else {
                 // Change the current directory to the specified path
                 File newDir = new File(part);
                 if (newDir.isAbsolute()) {
                     current_dir = newDir.getAbsolutePath();
                 } else {
-                    current_dir = new File(current_dir, part).getAbsolutePath();
+                    File targetDir = new File(current_dir, part);
+                    if (targetDir.exists() && targetDir.isDirectory()) {
+                        current_dir = targetDir.getAbsolutePath();
+                    } else {
+                        System.out.println("Directory does not exist: " + part);
+                    }
                 }
             }
         }
     }
+    
     public void mkdir(String[] args) {
         if (args.length == 0) {
             System.out.println("Usage: mkdir <directory1> [<directory2> ...]");
@@ -102,40 +141,57 @@ public class Terminal {
 
     public void ls() {
         File currentDir = new File(current_dir);
+        String output = "";
         if (currentDir.exists() && currentDir.isDirectory()) {
             File[] files = currentDir.listFiles();
             if (files != null && files.length > 0) {
                 Arrays.sort(files);
                 for (File file : files) {
-                    System.out.println(file.getName());
+                    output += file.getName() + "\n";
                 }
                 } else {
                     System.out.println("The current directory is empty.");
+                    return;
                 }
             }
         else {
                 System.out.println("Failed to list the contents of the current directory.");
+                return;
+
         }
+        writeOutput(output);
+
     }
 
     public void ls_r() {
         File currentDir = new File(current_dir);
+        String output = "";
         if (currentDir.exists() && currentDir.isDirectory()) {
             File[] files = currentDir.listFiles();
             if (files != null && files.length > 0) {
                 for (int i = files.length - 1; i >= 0; i--) {
-                    System.out.println(files[i].getName());
+                    output += files[i].getName() + "\n";
                 }
             } else {
                 System.out.println("The current directory is empty.");
+                return;
             }
         } else {
             System.out.println("Failed to list the contents of the current directory.");
+            return;
         }
+        writeOutput(output);
     }
-
-    public void rm(String fileName) {
+    public File getFile(String fileName){
         File file = new File(current_dir, fileName);
+        if(file.exists()){
+            return file;
+        }
+        return new File(fileName);
+    }
+    public void rm(String fileName) {
+        
+        File file = getFile(fileName);
         if (file.exists() && file.isFile()) {
             if (file.delete()) {
                 System.out.println("File removed: " + file.getAbsolutePath());
@@ -146,8 +202,9 @@ public class Terminal {
             System.out.println("File does not exist or is not a regular file: " + file.getAbsolutePath());
         }
     }
-    public void touch(String filePath) {
-        File file = new File(current_dir, filePath);
+    public void touch(String fileName) {
+        Path filePath = Paths.get(fileName).isAbsolute() ? Paths.get(fileName) : Paths.get(current_dir, fileName);
+        File file = new File(filePath.toString());        
         try {
             if (file.createNewFile()) {
                 System.out.println("File created: " + file.getAbsolutePath());
@@ -249,8 +306,11 @@ public class Terminal {
             String filePath2 = resolvePath(args[1]);
     
             if (filePath1 != null && filePath2 != null) {
+
                 printFileContent(filePath1);
+                append = true;
                 printFileContent(filePath2);
+                append = false;
             } else {
                 System.out.println("Invalid file path(s): " + args[0] + " " + args[1]);
             }
@@ -271,14 +331,17 @@ public class Terminal {
     }
     
     private void printFileContent(String filePath) {
+        String output = "";
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                System.out.println(line);
+                output += line + "\n";
             }
         } catch (IOException e) {
             System.out.println("Error reading the file: " + e.getMessage());
         }
+        writeOutput(output);
+
     }
 
     public void wc(String filePath) {
@@ -294,24 +357,44 @@ public class Terminal {
                 wordCount += words.length;
                 charCount += line.length();
             }
-    
-            System.out.println(lineCount + " " + wordCount + " " + charCount + " " + filePath);
+            writeOutput(lineCount + " " + wordCount + " " + charCount + " " + filePath);
         } catch (IOException e) {
             System.out.println("Error reading the file: " + e.getMessage());
         }
+    }
+    public void displayCommandHistory() {
+        String output = "Command History: \n";
+        int counter = 1;
+        for (String command : commandHistory) {
+            output += counter + ". " + command;
+            counter++;
+        }
+        writeOutput(output);
     }
     public void chooseCommandAction(String input) {
         Parser parser= new Parser();
         parser.parse(input);
         String commandName = parser.getCommandName();
         String[] args = parser.getArgs();
+        if (args.length > 1 && (args[args.length - 2].equals(">") || args[args.length - 2].equals(">>"))) {
+            outToFile = true;
+            if (args[args.length - 2].equals(">>")) {
+                append = true;
+            }
+            filePath = args[args.length - 1];
+            args = Arrays.copyOf(args, args.length - 2);
+        }
+
+
         String argument;
 
         switch (commandName) {
             case "echo":
                 echo(args);
+                break;
+
             case "pwd":
-                System.out.println(pwd());
+                writeOutput(pwd());
                 break;
             case "cd":
                 argument = args.length > 0 ? args[0] : "";
@@ -369,11 +452,19 @@ public class Terminal {
             case "cat":
                 cat(args);
                 break;
+            case "history":
+                displayCommandHistory();
+                break;
             case "exit":
                 break;
             default:
                 System.out.println("Command not found: " + commandName);
         }
+        outToFile = false;
+        append = false;
+        filePath = "";
+        commandHistory.add(input);
+
     }
 
 

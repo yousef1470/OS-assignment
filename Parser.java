@@ -2,6 +2,7 @@ import java.util.Scanner;
 public class Parser {
     String commandName;
     String[] args;
+
     
     public boolean parse(String input){
         String[] part = input.split(" ");
