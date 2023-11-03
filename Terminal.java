@@ -194,6 +194,22 @@ public class Terminal {
         }
     }
 
+    public static void wc() throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        int lines = 0;
+        int words = 0;
+        int characters = 0;
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            lines++;
+            words += line.split("\\s+").length;
+            characters += line.length();
+        }
+
+        System.out.println(lines + " " + words + " " + characters);
+        reader.close();
+    }
 
     public void chooseCommandAction(String input) {
         Parser parser= new Parser();
