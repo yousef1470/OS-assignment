@@ -19,8 +19,31 @@ import java.util.Scanner;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.Path;
+class Parser {
+    String commandName;
+    String[] args;
 
-public class Terminal {
+    
+    public boolean parse(String input){
+        String[] part = input.split(" ");
+        if (part.length > 0) {
+            commandName = part[0];
+            args = new String[part.length - 1];
+            for (int i = 1; i < part.length; i++) {
+                args[i - 1] = part[i];
+            }
+            return true;
+        }
+        return false;
+    }
+    public String getCommandName(){
+        return commandName;
+    }
+    public String[] getArgs(){
+        return args;
+    }
+}
+class Terminal {
     Parser parse;
     String currentPath = new java.io.File(".").getCanonicalPath();
     private String current_dir;
